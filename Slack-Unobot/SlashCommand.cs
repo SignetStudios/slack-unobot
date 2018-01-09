@@ -32,25 +32,25 @@ namespace SlackUnobot
 			switch (reqData.Text)
 			{
 				case var text when new Regex(@"^$").IsMatch(text):
-					uno.BeginTurnInteractive();
+					await uno.BeginTurnInteractive();
 					break;
 				case var text when new Regex(@"^new$").IsMatch(text):
-					uno.InitializeGame();
+					await uno.InitializeGame();
 					break;
 				case var text when new Regex(@"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$").IsMatch(text):
-					uno.PlayCard(color, value);
+					await uno.PlayCard(color, value);
 					break;
 				case var text when new Regex(@"^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)").IsMatch(text):
-					uno.SetWildColor(color);
+					await uno.SetWildColor(color);
 					break;
 				case var text when new Regex(@"^reset thisisthepassword$").IsMatch(text):
-					uno.ResetGame();
+					await uno.ResetGame();
 					break;
 				case var text when new Regex(@"^join").IsMatch(text):
-					uno.JoinGame();
+					await uno.JoinGame();
 					break;
 				case var text when new Regex(@"^quit").IsMatch(text):
-					uno.QuitGame();
+					await uno.QuitGame();
 					break;
 				case var text when new Regex(@"^status").IsMatch(text):
 					await uno.ReportHand();
@@ -58,19 +58,19 @@ namespace SlackUnobot
 					await uno.ReportScores(true);
 					break;
 				case var text when new Regex(@"^start").IsMatch(text):
-					uno.BeginGame();
+					await uno.BeginGame();
 					break;
 				case var text when new Regex(@"^draw").IsMatch(text):
-					uno.DrawCard();
+					await uno.DrawCard();
 					break;
 				case var text when new Regex(@"^addbot (.+?)(?: (.+))?$").IsMatch(text):
-					uno.AddAiPlayer(aiName, playerName);
+					await uno.AddAiPlayer(aiName, playerName);
 					break;
 				case var text when new Regex(@"^removebot (.+)$").IsMatch(text):
-					uno.QuitGame(playerName);
+					await uno.QuitGame(playerName);
 					break;
 				case var text when new Regex(@"^renamebot (.+) (.+?)").IsMatch(text):
-					uno.RenameAiPlayer(playerName, newPlayerName);
+					await uno.RenameAiPlayer(playerName, newPlayerName);
 					break;
 			}
 
@@ -92,13 +92,13 @@ namespace SlackUnobot
 			switch (reqData.Actions.FirstOrDefault()?.Value)
 			{
 				case "color":
-					uno.SetWildColor(color);
+					await uno.SetWildColor(color);
 					break;
 				case "play":
-					uno.PlayCard(color, value);
+					await uno.PlayCard(color, value);
 					break;
 				case "draw":
-					uno.DrawCard();
+					await uno.DrawCard();
 					break;
 				case "status":
 					await uno.ReportHand();

@@ -19,8 +19,24 @@ namespace SlackUnobot.Objects
 			{"KING", "reverse"}
 		};
 
+		private static readonly Dictionary<string, int> PointValues = new Dictionary<string, int>
+		{
+			{"wild", 50},
+			{"draw 4", 50},
+			{"draw 2", 20},
+			{"skip", 20},
+			{"reverse", 20}
+		};
+
 		public string Color { get; set; }
 		public string Value { get; set; }
+
+		public int PointValue()
+		{
+			return PointValues.ContainsKey(Value) 
+				? PointValues[Value] 
+				: int.Parse(Value);
+		}
 
 		public static Card FromRegularCard(Card card)
 		{

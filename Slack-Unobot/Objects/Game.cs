@@ -13,5 +13,6 @@ namespace SlackUnobot.Objects
 		public string Id { get; set; }
 		public string Player1 { get; set; }
 		public bool PlayAnything { get; set; }
+		public List<Player> NextGame { get; set; }
 	}
 }

@@ -5,7 +5,9 @@ using SlackUnobot.Objects.DeckOfCardsApi;
 using SlackUnobot.Objects.Slack;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace SlackUnobot.Services
@@ -103,7 +105,7 @@ namespace SlackUnobot.Services
 			}
 		}
 
-		public async Task EndTurn(string message)
+		public async Task EndTurn()
 		{
 			if (_game == null)
 			{
@@ -207,6 +209,159 @@ namespace SlackUnobot.Services
 		private async Task SaveGame()
 		{
 			await _redis.SaveGameAsync(_request.ChannelId, _game);
+		}
+
+		private async Task EndGame()
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (!_game.Started)
+			{
+				return;
+			}
+
+			var winner = _game.TurnOrder.First();
+			var points = await CalculatePoints();
+
+			await SendMessage($"{winner} played their final card.");
+			await SendMessage($"{winner} has won the hand and receives {points} points.");
+
+			await EndTurn();
+
+			_game.Players[winner].Score += points;
+
+			await ReportScores();
+			var currentScores = new List<(string name, int score)>();
+
+			foreach (var player in _game.Players)
+			{
+				player.Value.Hand = new List<Card>();
+				currentScores.Add((player.Key, player.Value.Score));
+			}
+
+			var gameWinner = currentScores.FirstOrDefault(x => x.score >= 500);
+
+			if (!gameWinner.Equals(default(ValueTuple<string, int>)))
+			{
+				await SendMessage($"{gameWinner.name} has won the game with {gameWinner.score} points!");
+				_game = new Game
+				{
+					Id = _request.ChannelId
+				};
+			}
+			else
+			{
+				_game.Started = false;
+				await SendMessage($"@{_game.Player1}, type `/uno start` to begin a new hand.");
+
+				if (_game.NextGame != null && _game.NextGame.Any())
+				{
+					foreach (var player in _game.NextGame)
+					{
+						_game.TurnOrder.Enqueue(player.Name);
+						await SendMessage($"{player.Name} has joined the game.");
+					}
+
+					_game.NextGame = new List<Player>();
+				}
+			}
+
+			await SaveGame();
+		}
+
+		private async Task<int> CalculatePoints()
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			//Winning player should not have any cards in their hand
+			return _game.Players
+				.SelectMany(player => player.Value.Hand)
+				.Sum(card => card.PointValue());
+		}
+
+		public async Task ReportScores(bool isPrivate = false)
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var message = new StringBuilder("Current score:\n");
+
+			foreach (var score in _game.Players.Select(x => (name: x.Key, score: x.Value.Score)).OrderBy(x => x.score))
+			{
+				message.Append($"\n{score.name}: {score.score}");
+			}
+
+			await SendMessage(message.ToString(), isPrivate);
+		}
+
+		public async Task ReportTurnOrder(bool isPrivate = false)
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (_game.Started && isPrivate)
+			{
+				await ReportCurrentCard(true);
+			}
+
+			var message = new StringBuilder("Current playing order:\n");
+			var i = 0;
+
+			foreach (var player in _game.TurnOrder.Select(x => _game.Players[x]))
+			{
+				i++;
+				if (i > 1)
+				{
+					message.Append(", ");
+				}
+
+				message.Append($"\n{i}. {player.Name}");
+
+				if (_game.Started)
+				{
+					message.Append($" ({player.Hand.Count} cards)");
+				}
+			}
+
+			await SendMessage(message.ToString(), isPrivate);
+
+			if (_game.NextGame.Any())
+			{
+				i = 0;
+				message = new StringBuilder("Players waiting for the next hand:\n");
+				foreach (var player in _game.NextGame)
+				{
+					i++;
+					if (i > 1)
+					{
+						message.Append(", ");
+					}
+
+					message.Append($"\n{player.Name}");
+				}
+
+				await SendMessage(message.ToString(), isPrivate);
+			}
+		}
+
+		public async Task ResetGame()
+		{
+			_game = new Game
+			{
+				Id = _request.ChannelId
+			};
+			await SaveGame();
+			await SendMessage("Game for this channel reset.", true);
 		}
 	}
 }
