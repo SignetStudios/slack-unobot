@@ -12,6 +12,7 @@ using Microsoft.Azure.WebJobs.Host;
 using Newtonsoft.Json;
 using SlackUnobot.Objects.Slack;
 using SlackUnobot.Services;
+#pragma warning disable 4014
 
 namespace SlackUnobot
 {
@@ -45,10 +46,10 @@ namespace SlackUnobot
 			switch (reqData.Text)
 			{
 				case var text when new Regex(@"^$").IsMatch(text):
-					await uno.BeginTurnInteractive();
+					uno.BeginTurnInteractive();
 					break;
 				case var text when new Regex(@"^new$").IsMatch(text):
-					await uno.InitializeGame();
+					uno.InitializeGame();
 					break;
 				case var text when Play.IsMatch(text):
 					var playCapture = Play.Match(text).Groups;
@@ -56,34 +57,32 @@ namespace SlackUnobot
 					color = playCapture["color"].Value;
 					var value = playCapture["value"].Value;
 
-					await uno.PlayCard(color, value);
+					uno.PlayCard(color, value);
 					break;
 				case var text when Color.IsMatch(text):
 					var colorCapture = Color.Match(text).Groups;
 
 					color = colorCapture["color"].Value;
 
-					await uno.SetWildColor(color);
+					uno.SetWildColor(color);
 					break;
 				case var text when Regex.IsMatch(text, @"^reset thisisthepassword$"):
-					await uno.ResetGame();
+					uno.ResetGame();
 					break;
 				case var text when Regex.IsMatch(text, @"^join"):
-					await uno.JoinGame();
+					uno.JoinGame();
 					break;
 				case var text when Regex.IsMatch(text, @"^quit"):
-					await uno.QuitGame();
+					uno.QuitGame();
 					break;
 				case var text when Regex.IsMatch(text, @"^status"):
-					await uno.ReportHand();
-					await uno.ReportTurnOrder(true);
-					await uno.ReportScores(true);
+					uno.ReportStatus();
 					break;
 				case var text when Regex.IsMatch(text, @"^start"):
-					await uno.BeginGame();
+					uno.BeginGame();
 					break;
 				case var text when Regex.IsMatch(text, @"^draw"):
-					await uno.DrawCard();
+					uno.DrawCard();
 					break;
 				case var text when AddBot.IsMatch(text):
 					var addBotCapture = AddBot.Match(text).Groups;
@@ -91,14 +90,14 @@ namespace SlackUnobot
 					var aiName = addBotCapture["aiName"].Value;
 					playerName = addBotCapture["playerName"].Value;
 
-					await uno.AddAiPlayer(aiName, playerName);
+					uno.AddAiPlayer(aiName, playerName);
 					break;
 				case var text when RemoveBot.IsMatch(text):
 					var removeBotCapture = RemoveBot.Match(text).Groups;
 
 					playerName = removeBotCapture["playerName"].Value;
 
-					await uno.QuitGame(playerName);
+					uno.QuitGame(playerName);
 					break;
 				case var text when RenameBot.IsMatch(text):
 					var renameBotCapture = RenameBot.Match(text).Groups;
@@ -106,7 +105,7 @@ namespace SlackUnobot
 					playerName = renameBotCapture["playerName"].Value;
 					var newPlayerName = renameBotCapture["newPlayerName"].Value;
 
-					await uno.RenameAiPlayer(playerName, newPlayerName);
+					uno.RenameAiPlayer(playerName, newPlayerName);
 					break;
 			}
 
@@ -135,21 +134,19 @@ namespace SlackUnobot
 				case "color":
 					color = "";
 
-					await uno.SetWildColor(color);
+					uno.SetWildColor(color);
 					break;
 				case "play":
 					color = "";
 					var value = "";
 
-					await uno.PlayCard(color, value);
+					uno.PlayCard(color, value);
 					break;
 				case "draw":
-					await uno.DrawCard();
+					uno.DrawCard();
 					break;
 				case "status":
-					await uno.ReportHand();
-					await uno.ReportTurnOrder(true);
-					await uno.ReportScores(true);
+					uno.ReportStatus();
 					break;
 				case "dismiss":
 					new SlackClient(Environment.GetEnvironmentVariable("SlackWebhookUrl")).PostMessage(new SlackMessage

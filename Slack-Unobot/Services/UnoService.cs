@@ -445,6 +445,13 @@ namespace SlackUnobot.Services
 			}
 		}
 
+		public async Task ReportStatus()
+		{
+			await ReportHand();
+			await ReportTurnOrder(true);
+			await ReportScores(true);
+		}
+
 		public async Task BeginTurnInteractive()
 		{
 		}
