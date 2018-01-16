@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Action = SlackUnobot.Objects.Slack.Action;
 
 namespace SlackUnobot.Services
 {
@@ -362,6 +363,76 @@ namespace SlackUnobot.Services
 			};
 			await SaveGame();
 			await SendMessage("Game for this channel reset.", true);
+		}
+
+		public async Task ReportHand(List<Attachment> additionaAttachments = null)
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (!_game.Started)
+			{
+				await SendMessage("The game has not yet started.", true);
+				return;
+			}
+
+			var attachments = new List<Attachment>();
+			var colors = new List<string> {"Blue", "Green", "Red", "Yellow", "Wild"};
+			var hand = _game.Players[_request.UserName].Hand;
+			var isFirst = true;
+			var attachment = new Attachment();
+
+			foreach (var color in colors)
+			{
+				if (attachment.Actions.Any())
+				{
+					attachments.Add(attachment);
+					attachment = new Attachment
+					{
+						CallbackId = "nothing",
+						Fallback = "",
+						Actions = new List<Action>()
+					};
+				}
+
+				attachment.Color = ColorToHex(color);
+
+				var handColors = hand.Where(x => string.Equals(x.Color, color, StringComparison.CurrentCultureIgnoreCase)).ToList();
+				if (!handColors.Any())
+				{
+					continue;
+				}
+
+				foreach (var card in handColors)
+				{
+					if (attachment.Actions.Count >= 5)
+					{
+						attachments.Add(attachment);
+						attachment = new Attachment
+						{
+							Color = ColorToHex(color.ToLower()),
+							CallbackId = "nothing",
+							Fallback = "",
+							Actions = new List<Action>()
+						};
+
+						if (isFirst)
+						{
+							attachment.Pretext = "Your current hand is:";
+							isFirst = false;
+						}
+					}
+
+					attachment.Actions.Add(new Action
+					{
+						Name = "card",
+						Type = "button",
+						Text = $"{card.Color} {card.Value}"
+					});
+				}
+			}
 		}
 	}
 }
