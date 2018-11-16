@@ -1,14 +1,14 @@
-﻿using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
-using SlackUnobot.Objects;
-using SlackUnobot.Objects.DeckOfCardsApi;
-using SlackUnobot.Objects.Slack;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs.Host;
+using Newtonsoft.Json;
+using SlackUnobot.Objects;
+using SlackUnobot.Objects.DeckOfCardsApi;
+using SlackUnobot.Objects.Slack;
 using Action = SlackUnobot.Objects.Slack.Action;
 
 namespace SlackUnobot.Services
@@ -29,7 +29,8 @@ namespace SlackUnobot.Services
 			_redis = new RedisClient();
 		}
 
-		public UnoService(SlackActionRequest request, TraceWriter log) : this(request.ToSlackRequest(), log)
+		public UnoService(SlackActionRequest request, TraceWriter log)
+			: this(request.ToSlackRequest(), log)
 		{
 		}
 
@@ -178,7 +179,8 @@ namespace SlackUnobot.Services
 
 			var currentPlayer = _game.TurnOrder.Peek();
 
-			await SendMessage($"Is is @{currentPlayer} 's turn.{(!_game.Players[currentPlayer].IsAi ? "\nType `/uno` to begin your turn." : "")}");
+			await SendMessage(
+				$"Is is @{currentPlayer} 's turn.{(!_game.Players[currentPlayer].IsAi ? "\nType `/uno` to begin your turn." : "")}");
 		}
 
 		private async Task SendMessage(SlackMessage message, bool isPrivate = false)
@@ -282,8 +284,8 @@ namespace SlackUnobot.Services
 
 			//Winning player should not have any cards in their hand
 			return _game.Players
-				.SelectMany(player => player.Value.Hand)
-				.Sum(card => card.PointValue());
+									.SelectMany(player => player.Value.Hand)
+									.Sum(card => card.PointValue());
 		}
 
 		public async Task ReportScores(bool isPrivate = false)
@@ -379,7 +381,14 @@ namespace SlackUnobot.Services
 			}
 
 			var attachments = new List<Attachment>();
-			var colors = new List<string> {"Blue", "Green", "Red", "Yellow", "Wild"};
+			var colors = new List<string>
+			{
+				"Blue",
+				"Green",
+				"Red",
+				"Yellow",
+				"Wild"
+			};
 			var hand = _game.Players[_request.UserName].Hand;
 			var isFirst = true;
 			var attachment = new Attachment();
@@ -399,7 +408,8 @@ namespace SlackUnobot.Services
 
 				attachment.Color = ColorToHex(color);
 
-				var handColors = hand.Where(x => string.Equals(x.Color, color, StringComparison.CurrentCultureIgnoreCase)).ToList();
+				var handColors = hand.Where(x => string.Equals(x.Color, color, StringComparison.CurrentCultureIgnoreCase))
+														 .ToList();
 				if (!handColors.Any())
 				{
 					continue;
@@ -433,6 +443,50 @@ namespace SlackUnobot.Services
 					});
 				}
 			}
+		}
+
+		public async Task BeginTurnInteractive()
+		{
+		}
+
+		public async Task InitializeGame()
+		{
+		}
+
+		public async Task PlayCard(string color, string value)
+		{
+		}
+
+		public async Task SetWildColor(string color)
+		{
+		}
+
+		public async Task JoinGame()
+		{
+		}
+
+		public async Task QuitGame()
+		{
+		}
+
+		public async Task QuitGame(string playerName)
+		{
+		}
+
+		public async Task BeginGame()
+		{
+		}
+
+		public async Task DrawCard()
+		{
+		}
+
+		public async Task AddAiPlayer(string aiName, string playerName)
+		{
+		}
+
+		public async Task RenameAiPlayer(object playerName, object newPlayerName)
+		{
 		}
 	}
 }

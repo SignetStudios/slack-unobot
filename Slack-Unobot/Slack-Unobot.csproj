@@ -1,17 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
-    <RootNamespace>SlackUnobot</RootNamespace>
     <AssemblyName>SlackUnobot</AssemblyName>
+    <RootNamespace>SlackUnobot</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>    
-    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.7" />    
-    <PackageReference Include="Newtonsoft.Json">
-      <Version>9.0.1</Version>
-    </PackageReference>    
-    <PackageReference Include="StackExchange.Redis">
-      <Version>1.2.6</Version>
-    </PackageReference>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.13" />
+    <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
+    <PackageReference Include="StackExchange.Redis" Version="2.0.513" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />

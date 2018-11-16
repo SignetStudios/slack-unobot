@@ -1,9 +1,3 @@
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
-using SlackUnobot.Objects.Slack;
-using SlackUnobot.Services;
 using System;
 using System.Linq;
 using System.Net;
@@ -12,23 +6,42 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Script.Serialization;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.WebJobs.Host;
+using Newtonsoft.Json;
+using SlackUnobot.Objects.Slack;
+using SlackUnobot.Services;
 
 namespace SlackUnobot
 {
 	public static class SlashCommand
 	{
-		[FunctionName("SlashCommand")]
-		public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequestMessage req, TraceWriter log)
-		{
+		private static readonly Regex Play = new Regex(
+			@"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$");
 
+		private static readonly Regex Color = new Regex(@"^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)");
+		private static readonly Regex AddBot = new Regex(@"^addbot (.+?)(?: (.+))?$");
+		private static readonly Regex RemoveBot = new Regex(@"^removebot (.+)$");
+		private static readonly Regex RenameBot = new Regex(@"^renamebot (.+) (.+?)");
+
+		[FunctionName("SlashCommand")]
+		public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]
+			HttpRequestMessage req, TraceWriter log)
+		{
 			log.Info("C# HTTP trigger function processed a request.");
 
 			var reqContent = await req.Content.ReadAsStringAsync();
 			var values = HttpUtility.ParseQueryString(reqContent);
-			var reqData = JsonConvert.DeserializeObject<SlackRequest>(new JavaScriptSerializer().Serialize(values.AllKeys.ToDictionary(x => x, x => values[x])));
-			
+			var reqData =
+				JsonConvert.DeserializeObject<SlackRequest>(
+					new JavaScriptSerializer().Serialize(values.AllKeys.ToDictionary(x => x, x => values[x])));
+
 			var uno = new UnoService(reqData, log);
 
+			string color;
+
+			string playerName;
 			switch (reqData.Text)
 			{
 				case var text when new Regex(@"^$").IsMatch(text):
@@ -37,39 +50,62 @@ namespace SlackUnobot
 				case var text when new Regex(@"^new$").IsMatch(text):
 					await uno.InitializeGame();
 					break;
-				case var text when new Regex(@"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$").IsMatch(text):
+				case var text when Play.IsMatch(text):
+					var playCapture = Play.Match(text).Groups;
+
+					color = playCapture["color"].Value;
+					var value = playCapture["value"].Value;
+
 					await uno.PlayCard(color, value);
 					break;
-				case var text when new Regex(@"^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)").IsMatch(text):
+				case var text when Color.IsMatch(text):
+					var colorCapture = Color.Match(text).Groups;
+
+					color = colorCapture["color"].Value;
+
 					await uno.SetWildColor(color);
 					break;
-				case var text when new Regex(@"^reset thisisthepassword$").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^reset thisisthepassword$"):
 					await uno.ResetGame();
 					break;
-				case var text when new Regex(@"^join").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^join"):
 					await uno.JoinGame();
 					break;
-				case var text when new Regex(@"^quit").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^quit"):
 					await uno.QuitGame();
 					break;
-				case var text when new Regex(@"^status").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^status"):
 					await uno.ReportHand();
 					await uno.ReportTurnOrder(true);
 					await uno.ReportScores(true);
 					break;
-				case var text when new Regex(@"^start").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^start"):
 					await uno.BeginGame();
 					break;
-				case var text when new Regex(@"^draw").IsMatch(text):
+				case var text when Regex.IsMatch(text, @"^draw"):
 					await uno.DrawCard();
 					break;
-				case var text when new Regex(@"^addbot (.+?)(?: (.+))?$").IsMatch(text):
+				case var text when AddBot.IsMatch(text):
+					var addBotCapture = AddBot.Match(text).Groups;
+
+					var aiName = addBotCapture["aiName"].Value;
+					playerName = addBotCapture["playerName"].Value;
+
 					await uno.AddAiPlayer(aiName, playerName);
 					break;
-				case var text when new Regex(@"^removebot (.+)$").IsMatch(text):
+				case var text when RemoveBot.IsMatch(text):
+					var removeBotCapture = RemoveBot.Match(text).Groups;
+
+					playerName = removeBotCapture["playerName"].Value;
+
 					await uno.QuitGame(playerName);
 					break;
-				case var text when new Regex(@"^renamebot (.+) (.+?)").IsMatch(text):
+				case var text when RenameBot.IsMatch(text):
+					var renameBotCapture = RenameBot.Match(text).Groups;
+
+					playerName = renameBotCapture["playerName"].Value;
+					var newPlayerName = renameBotCapture["newPlayerName"].Value;
+
 					await uno.RenameAiPlayer(playerName, newPlayerName);
 					break;
 			}
@@ -78,23 +114,33 @@ namespace SlackUnobot
 		}
 
 		[FunctionName("Action")]
-		public static async Task<HttpResponseMessage> Action([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequestMessage req, TraceWriter log)
+		public static async Task<HttpResponseMessage> Action(
+			[HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]
+			HttpRequestMessage req, TraceWriter log)
 		{
-
 			log.Info("C# HTTP trigger function processed a request.");
 
 			var reqContent = await req.Content.ReadAsStringAsync();
 			var values = HttpUtility.ParseQueryString(reqContent);
-			var reqData = JsonConvert.DeserializeObject<SlackActionRequest>(new JavaScriptSerializer().Serialize(values.AllKeys.ToDictionary(x => x, x => values[x])));
-			
+			var reqData =
+				JsonConvert.DeserializeObject<SlackActionRequest>(
+					new JavaScriptSerializer().Serialize(values.AllKeys.ToDictionary(x => x, x => values[x])));
+
 			var uno = new UnoService(reqData, log);
+
+			string color;
 
 			switch (reqData.Actions.FirstOrDefault()?.Value)
 			{
 				case "color":
+					color = "";
+
 					await uno.SetWildColor(color);
 					break;
 				case "play":
+					color = "";
+					var value = "";
+
 					await uno.PlayCard(color, value);
 					break;
 				case "draw":
@@ -107,10 +153,10 @@ namespace SlackUnobot
 					break;
 				case "dismiss":
 					new SlackClient(Environment.GetEnvironmentVariable("SlackWebhookUrl")).PostMessage(new SlackMessage
-					                                                                                   {
-						                                                                                   Text = "",
-						                                                                                   DeleteOriginal = true
-					                                                                                   });
+					{
+						Text = "",
+						DeleteOriginal = true
+					});
 					break;
 			}
 
