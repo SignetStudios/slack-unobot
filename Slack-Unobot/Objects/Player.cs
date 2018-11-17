@@ -4,6 +4,11 @@ namespace SlackUnobot.Objects
 {
 	public class Player
 	{
+		public Player()
+		{
+			Hand = new List<Card>();
+		}
+
 		public string Name { get; set; }
 		public string Id { get; set; }
 		public List<Card> Hand { get; set; }

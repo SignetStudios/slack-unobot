@@ -54,7 +54,7 @@ namespace SlackUnobot.Services
 			}
 		}
 
-		public async Task DrawCards(string message, string playerName, int count = 1)
+		public async Task DrawCards(string playerName, int count = 1)
 		{
 			if (_game == null)
 			{
@@ -93,7 +93,6 @@ namespace SlackUnobot.Services
 				}
 
 				await GetNewDeck();
-				//await DrawCards(message, game, playerName, count);
 			}
 		}
 
@@ -443,6 +442,21 @@ namespace SlackUnobot.Services
 					});
 				}
 			}
+
+			if (attachment.Actions.Any())
+			{
+				attachments.Add(attachment);
+			}
+
+			if (additionaAttachments?.Any() ?? false)
+			{
+				attachments.AddRange(additionaAttachments);
+			}
+
+			await SendMessage(new SlackMessage
+			                  {
+				                  Attachments = attachments
+			                  }, true);
 		}
 
 		public async Task ReportStatus()
@@ -452,48 +466,141 @@ namespace SlackUnobot.Services
 			await ReportScores(true);
 		}
 
-		public async Task BeginTurnInteractive()
+		public async Task DrawCard()
 		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (!_game.Started)
+			{
+				await SendMessage("The game has not yet started.", true);
+				return;
+			}
+
+			var currentPlayer = _game.TurnOrder.Peek();
+
+			if (_request.UserName != currentPlayer)
+			{
+				await SendMessage("It is not your turn.", true);
+				return;
+			}
+
+			await SendMessage("Drawing card.", true);
+			await DrawCards(currentPlayer);
+			await SendMessage($"{currentPlayer} has drawn a card.");
+
+			await SaveGame();
+			BeginTurnInteractive();
 		}
 
 		public async Task InitializeGame()
 		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (_game.Initialized)
+			{
+				await SendMessage("There is already a game in progress. Type `/uno join` to join the game.", true);
+				return;
+			}
+
+			_game = new Game
+			        {
+				        Id = _request.ChannelId,
+				        Initialized = true,
+				        Player1 = _request.UserName,
+				        Players = new Dictionary<string, Player>
+				                  {
+					                  {
+						                  _request.UserName, new Player()
+					                  }
+				                  },
+								TurnOrder = new Queue<string>(new []{_request.UserName})
+			        };
+
+			await SendMessage($"{_request.UserName} has started UNO. Type `/uno join` to join the game.");
+
+			await SaveGame();
+			await ReportTurnOrder();
+		}
+
+		public async Task JoinGame(string userName = "")
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (string.IsNullOrWhiteSpace(userName))
+			{
+				userName = _request.UserName;
+			}
+
+			if (_game.TurnOrder.Contains(userName) || _game.NextGame.Any(x => x.Name == userName))
+			{
+				await SendMessage($"{userName} has already joined the game.", true);
+				return;
+			}
+
+			var newPlayer = new Player
+			                {
+				                Name = userName
+			                };
+
+			_game.Players.Add(userName, newPlayer);
+
+			if (_game.Started)
+			{
+				_game.NextGame.Add(newPlayer);
+				await SendMessage($"{userName} will join the next game.");
+			}
+			else
+			{
+				_game.TurnOrder.Enqueue(userName);
+				await SendMessage($"{userName} has joined the game.");
+				await ReportTurnOrder();
+			}
+
+			await SaveGame();
+		}
+
+		public async Task BeginTurnInteractive()
+		{
+			throw new NotImplementedException();
 		}
 
 		public async Task PlayCard(string color, string value)
 		{
+			throw new NotImplementedException();
 		}
 
 		public async Task SetWildColor(string color)
 		{
+			throw new NotImplementedException();
 		}
 
-		public async Task JoinGame()
+		public async Task QuitGame(string playerName = "")
 		{
-		}
-
-		public async Task QuitGame()
-		{
-		}
-
-		public async Task QuitGame(string playerName)
-		{
+			throw new NotImplementedException();
 		}
 
 		public async Task BeginGame()
 		{
-		}
-
-		public async Task DrawCard()
-		{
+			throw new NotImplementedException();
 		}
 
 		public async Task AddAiPlayer(string aiName, string playerName)
 		{
+			throw new NotImplementedException();
 		}
 
-		public async Task RenameAiPlayer(object playerName, object newPlayerName)
+		public async Task RenameAiPlayer(string playerName, string newPlayerName)
 		{
+			throw new NotImplementedException();
 		}
 	}
 }
