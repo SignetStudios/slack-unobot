@@ -1,3 +1,9 @@
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.WebJobs.Host;
+using Newtonsoft.Json;
+using SlackUnobot.Objects.Slack;
+using SlackUnobot.Services;
 using System;
 using System.Linq;
 using System.Net;
@@ -6,12 +12,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Script.Serialization;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
-using SlackUnobot.Objects.Slack;
-using SlackUnobot.Services;
 #pragma warning disable 4014
 
 namespace SlackUnobot
@@ -19,12 +19,11 @@ namespace SlackUnobot
 	public static class SlashCommand
 	{
 		private static readonly Regex Play = new Regex(
-			@"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$");
-
-		private static readonly Regex Color = new Regex(@"^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)");
+			"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$");
+		private static readonly Regex Color = new Regex("^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)");
 		private static readonly Regex AddBot = new Regex(@"^addbot (.+?)(?: (.+))?$");
-		private static readonly Regex RemoveBot = new Regex(@"^removebot (.+)$");
-		private static readonly Regex RenameBot = new Regex(@"^renamebot (.+) (.+?)");
+		private static readonly Regex RemoveBot = new Regex("^removebot (.+)$");
+		private static readonly Regex RenameBot = new Regex("^renamebot (.+) (.+?)");
 
 		[FunctionName("SlashCommand")]
 		public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]
@@ -45,10 +44,10 @@ namespace SlackUnobot
 			string playerName;
 			switch (reqData.Text)
 			{
-				case var text when new Regex(@"^$").IsMatch(text):
+				case var text when new Regex("^$").IsMatch(text):
 					uno.BeginTurnInteractive();
 					break;
-				case var text when new Regex(@"^new$").IsMatch(text):
+				case var text when new Regex("^new$").IsMatch(text):
 					uno.InitializeGame();
 					break;
 				case var text when Play.IsMatch(text):
@@ -66,22 +65,22 @@ namespace SlackUnobot
 
 					uno.SetWildColor(color);
 					break;
-				case var text when Regex.IsMatch(text, @"^reset thisisthepassword$"):
+				case var text when Regex.IsMatch(text, "^reset thisisthepassword$"):
 					uno.ResetGame();
 					break;
-				case var text when Regex.IsMatch(text, @"^join"):
+				case var text when Regex.IsMatch(text, "^join"):
 					uno.JoinGame();
 					break;
-				case var text when Regex.IsMatch(text, @"^quit"):
+				case var text when Regex.IsMatch(text, "^quit"):
 					uno.QuitGame();
 					break;
-				case var text when Regex.IsMatch(text, @"^status"):
+				case var text when Regex.IsMatch(text, "^status"):
 					uno.ReportStatus();
 					break;
-				case var text when Regex.IsMatch(text, @"^start"):
+				case var text when Regex.IsMatch(text, "^start"):
 					uno.BeginGame();
 					break;
-				case var text when Regex.IsMatch(text, @"^draw"):
+				case var text when Regex.IsMatch(text, "^draw"):
 					uno.DrawCard();
 					break;
 				case var text when AddBot.IsMatch(text):

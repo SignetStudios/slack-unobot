@@ -1,14 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs.Host;
+﻿using Microsoft.Azure.WebJobs.Host;
 using Newtonsoft.Json;
 using SlackUnobot.Objects;
 using SlackUnobot.Objects.DeckOfCardsApi;
 using SlackUnobot.Objects.Slack;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Action = SlackUnobot.Objects.Slack.Action;
 
 namespace SlackUnobot.Services
@@ -571,14 +572,286 @@ namespace SlackUnobot.Services
 		public async Task BeginTurnInteractive()
 		{
 			throw new NotImplementedException();
-		}
+	}
 
-		public async Task PlayCard(string color, string value)
+		public async Task PlayCard(string color = "", string value = "")
 		{
-			throw new NotImplementedException();
+			var playerName = _request.UserName;
+
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (!_game.Started)
+			{
+				await SendMessage("The game has not yet been started.", true);
+				return;
+			}
+
+			var currentPlayer = _game.TurnOrder.Peek();
+
+			if (playerName != currentPlayer)
+			{
+				await SendMessage("It is not your turn.", true);
+				return;
+			}
+
+			if (string.IsNullOrWhiteSpace(color) && string.IsNullOrWhiteSpace(value))
+			{
+				await ReportHand();
+				return;
+			}
+
+			if (!Regex.IsMatch(color, "/^(w(ild)?|d(raw?4?)?)/", RegexOptions.IgnoreCase) && string.IsNullOrWhiteSpace(value))
+			{
+				await SendMessage("You must specify the value of the card to be played.", true);
+				return;
+			}
+
+			if (Regex.IsMatch(color, "/^d(raw?4)?/", RegexOptions.IgnoreCase))
+			{
+				color = "wild";
+				value = "draw 4";
+			}
+			else if (Regex.IsMatch(color, "/^w(ild)?/", RegexOptions.IgnoreCase))
+			{
+				color = "wild";
+				value = "wild";
+			}
+
+			color = color.ToLower();
+			value = value.ToLower();
+
+			var colors = new Dictionary<string, string>
+			             {
+				             {"b", "blue"},
+				             {"y", "yellow"},
+				             {"g", "green"},
+				             {"r", "red"}
+			             };
+
+			if (colors.ContainsKey(color))
+			{
+				color = colors[color];
+			}
+
+			var values = new Dictionary<string, string>
+			             {
+				             {"s", "skip"},
+				             {"r", "reverse"},
+				             {"draw2", "draw 2"},
+				             {"draw", "draw 2"},
+				             {"d2", "draw 2"},
+				             {"d", "draw 2"}
+			             };
+
+			if (values.ContainsKey(value))
+			{
+				value = values[value];
+			}
+
+			var player = _game.Players[playerName];
+
+			var selectedCards = player.Hand.Where(x => x.Color == color && x.Value == value).ToList();
+
+			if (!selectedCards.Any())
+			{
+				_log.Info($"{color} {value}");
+				await SendMessage($"You don't have a {(color != "wild" ? $"{color} " : "")}{value}", true);
+				await SaveGame();
+				BeginTurnInteractive();
+				return;
+			}
+
+			var cardToPlay = selectedCards.First();
+
+			if (!_game.PlayAnything &&
+			    cardToPlay.Color != "wild" &&
+			    cardToPlay.Color != _game.CurrentCard.Color &&
+			    (_game.CurrentCard.Value == "wild" ||
+			     _game.CurrentCard.Value == "draw 4" ||
+			     cardToPlay.Value != _game.CurrentCard.Value))
+			{
+				await SendMessage($"You cannot play a {color} {value} on a {_game.CurrentCard.Color} {_game.CurrentCard.Value}",
+					true);
+				await SaveGame();
+				BeginTurnInteractive();
+				return;
+			}
+
+			if (_game.PlayAnything)
+			{
+				_game.PlayAnything = false;
+			}
+
+			player.Hand.Remove(cardToPlay);
+			_game.CurrentCard = cardToPlay;
+
+			if (cardToPlay.Color == "wild")
+			{
+				await SaveGame();
+				var chooser = new Attachment
+				              {
+					              Fallback = "Which color would you like to select?",
+					              Text = "Which color would you like to select?",
+					              CallbackId = "color_selection",
+					              Actions = new List<Action>
+					                        {
+						                        new Action {Name = "color", Text = "Blue", Type = "button", Value = "blue"},
+						                        new Action {Name = "color", Text = "Green", Type = "button", Value = "green"},
+						                        new Action {Name = "color", Text = "Red", Type = "button", Value = "red"},
+						                        new Action {Name = "color", Text = "Yellow", Type = "button", Value = "yellow"}
+					                        }
+				              };
+
+				await ReportHand(new List<Attachment> {chooser});
+				//TODO: Begin conversation and interactively prompt for color
+				/*await sendMessage(message, {
+				        text: '',
+				        attachments: [
+				            {
+				                fallback: 'Which color would you like to select?',
+				                text: 'Which color would you like to select?',
+				                callback_id: 'color_selection',
+				                actions: [
+				                    {name: 'color', text: 'Blue', type: 'button', value: 'blue' },
+				                    {name: 'color', text: 'Green', type: 'button', value: 'green' },
+				                    {name: 'color', text: 'Red', type: 'button', value: 'red' },
+				                    {name: 'color', text: 'Yellow', type: 'button', value: 'yellow' }
+				                ]
+				            }
+				        ]
+				    }, true);*/
+			}
+
+			await SendMessage($"Playing {cardToPlay.Color} {cardToPlay.Value}", true);
+
+			if (player.Hand.Count == 1)
+			{
+				await SendMessage($"{playerName} only has one card left in their hand!");
+			}
+			else if (!player.Hand.Any())
+			{
+				await EndGame();
+				return;
+			}
+
+			if (cardToPlay.Value == "skip" || cardToPlay.Value == "reverse" && _game.TurnOrder.Count == 2)
+			{
+				await EndTurn();
+				await EndTurn();
+			}
+			else if (cardToPlay.Value == "reverse")
+			{
+				_game.TurnOrder = new Queue<string>(_game.TurnOrder.Reverse());
+			}
+			else if (cardToPlay.Value == "draw 2")
+			{
+				await EndTurn();
+				await DrawCards(_game.TurnOrder.First(), 2);
+				await EndTurn();
+			}
+			else
+			{
+				await EndTurn();
+			}
+
+
+			await SaveGame();
+			await ReportHand();
+			await SendMessage($"{playerName} played a {color} {value}");
+			await AnnounceTurn();
+
+			if (playerName == _game.TurnOrder.First())
+			{
+				BeginTurnInteractive();
+			}
+			else
+			{
+				ProcessAiTurns();
+			}
 		}
 
 		public async Task SetWildColor(string color)
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var playerName = _request.UserName;
+
+			if (!_game.Started)
+			{
+				await SendMessage("The game has not yet been started.", true);
+				return;
+			}
+
+			var currentPlayer = _game.TurnOrder.First();
+
+			if (playerName != currentPlayer)
+			{
+				await SendMessage("It is not your turn.", true);
+				return;
+			}
+
+			if (_game.CurrentCard.Color != "wild")
+			{
+				await SendMessage("You have't played a wild.", true);
+				return;
+			}
+
+
+			color = color.ToLower();
+
+			var colors = new Dictionary<string, string>
+			             {
+				             {"b", "blue"},
+				             {"y", "yellow"},
+				             {"g", "green"},
+				             {"r", "red"}
+			             };
+
+			if (colors.ContainsKey(color))
+			{
+				color = colors[color];
+			}
+
+			//await message.respond(message.body.response_url, {
+			//	text: 'Setting the color to ' + color,
+			//	delete_original: true
+
+			//});
+
+			_game.CurrentCard.Color = color;
+
+			await SendMessage($"{playerName} played a {_game.CurrentCard.Value} and chose {color} as the new color.");
+
+			await EndTurn();
+
+			if (_game.CurrentCard.Value == "draw 4")
+			{
+				await DrawCards(_game.TurnOrder.First(), 4);
+				await EndTurn();
+			}
+
+			await SaveGame();
+			await ReportHand();
+
+			await AnnounceTurn();
+
+			if (playerName == _game.TurnOrder.First())
+			{
+				BeginTurnInteractive();
+			}
+			else
+			{
+				ProcessAiTurns();
+			}
+		}
+
+		public void ProcessAiTurns()
 		{
 			throw new NotImplementedException();
 		}
