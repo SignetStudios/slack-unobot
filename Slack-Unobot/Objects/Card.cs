@@ -33,9 +33,11 @@ namespace SlackUnobot.Objects
 
 		public int PointValue()
 		{
-			return PointValues.ContainsKey(Value) 
-				? PointValues[Value] 
-				: int.Parse(Value);
+			return PointValues.ContainsKey(Value)
+				? PointValues[Value]
+				: int.TryParse(Value, out var res)
+					? res
+					: 0;
 		}
 
 		public static Card FromRegularCard(Card card)

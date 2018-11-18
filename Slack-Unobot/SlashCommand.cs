@@ -21,7 +21,7 @@ namespace SlackUnobot
 		private static readonly Regex Play = new Regex(
 			"^play(?: (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?|w(?:ild)?|d(?:raw ?4)?)(?: ?(?<value>[1-9]|s(?:kip)?|r(?:everse)?|d(?:(?:raw ?)?2?)?))?)?$");
 		private static readonly Regex Color = new Regex("^color (?<color>r(?:ed)?|y(?:ellow)?|g(?:reen)?|b(?:lue)?)");
-		private static readonly Regex AddBot = new Regex(@"^addbot (.+?)(?: (.+))?$");
+		private static readonly Regex AddBot = new Regex("^addbot (.+?)(?: (.+))?$");
 		private static readonly Regex RemoveBot = new Regex("^removebot (.+)$");
 		private static readonly Regex RenameBot = new Regex("^renamebot (.+) (.+?)");
 
