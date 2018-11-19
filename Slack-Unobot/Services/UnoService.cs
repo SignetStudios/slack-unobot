@@ -952,7 +952,70 @@ namespace SlackUnobot.Services
 
 		public async Task QuitGame(string playerName = "")
 		{
-			throw new NotImplementedException();
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var user = playerName;
+
+			if (string.IsNullOrWhiteSpace(user))
+			{
+				user = _request.UserName;
+			}
+
+			if (!_game.TurnOrder.Contains(user))
+			{
+				await SendMessage($"{user} wasn't playing to begin with.", true);
+				return;
+			}
+
+			if (!_game.Players[user].IsAi && user != _request.UserName)
+			{
+				await SendMessage($"{user} is not an AI and must leave voluntarily.", true);
+				return;
+			}
+
+			_game.TurnOrder = (Queue<string>) _game.TurnOrder.Where(x => x != user); //might work?
+
+			_game.NextGame.RemoveAll(x => x.Name == user);
+
+			await SendMessage($"{user} has left the game.");
+
+			if (_game.TurnOrder.Count == 0)
+			{
+				_game = NewGame();
+				await SaveGame();
+				await SendMessage("No more players. Ending the game.");
+				return;
+			}
+
+			var humanPlayers = _game.TurnOrder.Where(x => !_game.Players[x].IsAi).ToList();
+
+			if (humanPlayers.Count == 0)
+			{
+				_game.Started = false;
+				await SaveGame();
+				await SendMessage("Only AI players remaining. Waiting for more human players.");
+				return;
+			}
+
+			if (_game.Player1 == user)
+			{
+				_game.Player1 = humanPlayers[0];
+				await SendMessage($"{_game.Player1} is the new player 1.");
+			}
+
+			if (_game.TurnOrder.Count == 1)
+			{
+				_game.Started = false;
+				await SaveGame();
+				await SendMessage("Only one player remaining. Waiting for more players.");
+				return;
+			}
+
+			await SaveGame();
+			await ReportTurnOrder();
 		}
 
 		public async Task AddAiPlayer(string aiName, string playerName)
