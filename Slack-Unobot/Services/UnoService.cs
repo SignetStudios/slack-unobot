@@ -40,7 +40,7 @@ namespace SlackUnobot.Services
 			_game = await _redis.GetGameAsync(_request.ChannelId);
 		}
 
-		private const string DeckOfCardsApi = "http://deckofcardsapi.com/api";
+		private const string DECK_OF_CARDS_API = "http://deckofcardsapi.com/api";
 
 		private static string ColorToHex(string color)
 		{
@@ -55,7 +55,7 @@ namespace SlackUnobot.Services
 			}
 		}
 
-		public async Task DrawCards(string playerName, int count = 1)
+		private async Task DrawCards(string playerName, int count = 1)
 		{
 			if (_game == null)
 			{
@@ -71,7 +71,7 @@ namespace SlackUnobot.Services
 			{
 				using (var client = new HttpClient())
 				{
-					var drawRequest = await client.GetStringAsync($"{DeckOfCardsApi}/deck/{_game.DeckId}/draw/?count={count}");
+					var drawRequest = await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/draw/?count={count}");
 					var drawResult = JsonConvert.DeserializeObject<Draw>(drawRequest);
 					foreach (var card in drawResult.Cards)
 					{
@@ -81,7 +81,7 @@ namespace SlackUnobot.Services
 					if (drawResult.Remaining <= 10)
 					{
 						await SendMessage("Less than 10 cards remaining. Reshuffling the deck.");
-						await client.GetStringAsync($"{DeckOfCardsApi}/deck/{_game.DeckId}/shuffle");
+						await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/shuffle");
 					}
 				}
 			}
@@ -97,17 +97,17 @@ namespace SlackUnobot.Services
 			}
 		}
 
-		public async Task GetNewDeck()
+		private async Task GetNewDeck()
 		{
 			using (var client = new HttpClient())
 			{
-				var deckRequest = await client.GetStringAsync($"{DeckOfCardsApi}/deck/new/shuffle/?deck_count=2");
+				var deckRequest = await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/new/shuffle/?deck_count=2");
 				var deckResult = JsonConvert.DeserializeObject<Shuffle>(deckRequest);
 				_game.DeckId = deckResult.DeckId;
 			}
 		}
 
-		public async Task EndTurn()
+		private async Task EndTurn()
 		{
 			if (_game == null)
 			{
@@ -135,7 +135,7 @@ namespace SlackUnobot.Services
 			return new Game();
 		}
 
-		public async Task ReportCurrentCard(bool isPrivate = false)
+		private async Task ReportCurrentCard(bool isPrivate = false)
 		{
 			if (_game == null)
 			{
@@ -163,7 +163,7 @@ namespace SlackUnobot.Services
 			await SendMessage(message, isPrivate);
 		}
 
-		public async Task AnnounceTurn()
+		private async Task AnnounceTurn()
 		{
 			if (_game == null)
 			{
@@ -288,7 +288,7 @@ namespace SlackUnobot.Services
 									.Sum(card => card.PointValue());
 		}
 
-		public async Task ReportScores(bool isPrivate = false)
+		private async Task ReportScores(bool isPrivate = false)
 		{
 			if (_game == null)
 			{
@@ -305,7 +305,7 @@ namespace SlackUnobot.Services
 			await SendMessage(message.ToString(), isPrivate);
 		}
 
-		public async Task ReportTurnOrder(bool isPrivate = false)
+		private async Task ReportTurnOrder(bool isPrivate = false)
 		{
 			if (_game == null)
 			{
@@ -367,7 +367,7 @@ namespace SlackUnobot.Services
 			await SendMessage("Game for this channel reset.", true);
 		}
 
-		public async Task ReportHand(List<Attachment> additionaAttachments = null)
+		private async Task ReportHand(List<Attachment> additionalAttachments = null)
 		{
 			if (_game == null)
 			{
@@ -449,9 +449,9 @@ namespace SlackUnobot.Services
 				attachments.Add(attachment);
 			}
 
-			if (additionaAttachments?.Any() ?? false)
+			if (additionalAttachments?.Any() ?? false)
 			{
-				attachments.AddRange(additionaAttachments);
+				attachments.AddRange(additionalAttachments);
 			}
 
 			await SendMessage(new SlackMessage
@@ -828,7 +828,7 @@ namespace SlackUnobot.Services
 
 			if (_game.CurrentCard.Color != "wild")
 			{
-				await SendMessage("You have't played a wild.", true);
+				await SendMessage("You haven't played a wild.", true);
 				return;
 			}
 
