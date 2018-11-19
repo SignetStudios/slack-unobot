@@ -1,15 +1,15 @@
-﻿using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
-using SlackUnobot.Objects;
-using SlackUnobot.Objects.DeckOfCardsApi;
-using SlackUnobot.Objects.Slack;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs.Host;
+using Newtonsoft.Json;
+using SlackUnobot.Objects;
+using SlackUnobot.Objects.DeckOfCardsApi;
+using SlackUnobot.Objects.Slack;
 using Action = SlackUnobot.Objects.Slack.Action;
 
 namespace SlackUnobot.Services
@@ -455,9 +455,9 @@ namespace SlackUnobot.Services
 			}
 
 			await SendMessage(new SlackMessage
-			                  {
-				                  Attachments = attachments
-			                  }, true);
+			{
+				Attachments = attachments
+			}, true);
 		}
 
 		public async Task ReportStatus()
@@ -510,18 +510,16 @@ namespace SlackUnobot.Services
 			}
 
 			_game = new Game
-			        {
-				        Id = _request.ChannelId,
-				        Initialized = true,
-				        Player1 = _request.UserName,
-				        Players = new Dictionary<string, Player>
-				                  {
-					                  {
-						                  _request.UserName, new Player()
-					                  }
-				                  },
-								TurnOrder = new Queue<string>(new []{_request.UserName})
-			        };
+			{
+				Id = _request.ChannelId,
+				Initialized = true,
+				Player1 = _request.UserName,
+				Players = new Dictionary<string, Player>
+				{
+					{ _request.UserName, new Player() }
+				},
+				TurnOrder = new Queue<string>(new[] { _request.UserName })
+			};
 
 			await SendMessage($"{_request.UserName} has started UNO. Type `/uno join` to join the game.");
 
@@ -548,9 +546,9 @@ namespace SlackUnobot.Services
 			}
 
 			var newPlayer = new Player
-			                {
-				                Name = userName
-			                };
+			{
+				Name = userName
+			};
 
 			_game.Players.Add(userName, newPlayer);
 
@@ -571,6 +569,16 @@ namespace SlackUnobot.Services
 
 		public async Task PlayCard(string color = "", string value = "")
 		{
+			if (color == null)
+			{
+				color = string.Empty;
+			}
+
+			if (value == null)
+			{
+				value = string.Empty;
+			}
+
 			var playerName = _request.UserName;
 
 			if (_game == null)
@@ -619,12 +627,12 @@ namespace SlackUnobot.Services
 			value = value.ToLower();
 
 			var colors = new Dictionary<string, string>
-			             {
-				             {"b", "blue"},
-				             {"y", "yellow"},
-				             {"g", "green"},
-				             {"r", "red"}
-			             };
+			{
+				{ "b", "blue" },
+				{ "y", "yellow" },
+				{ "g", "green" },
+				{ "r", "red" }
+			};
 
 			if (colors.ContainsKey(color))
 			{
@@ -632,14 +640,14 @@ namespace SlackUnobot.Services
 			}
 
 			var values = new Dictionary<string, string>
-			             {
-				             {"s", "skip"},
-				             {"r", "reverse"},
-				             {"draw2", "draw 2"},
-				             {"draw", "draw 2"},
-				             {"d2", "draw 2"},
-				             {"d", "draw 2"}
-			             };
+			{
+				{ "s", "skip" },
+				{ "r", "reverse" },
+				{ "draw2", "draw 2" },
+				{ "draw", "draw 2" },
+				{ "d2", "draw 2" },
+				{ "d", "draw 2" }
+			};
 
 			if (values.ContainsKey(value))
 			{
@@ -662,11 +670,11 @@ namespace SlackUnobot.Services
 			var cardToPlay = selectedCards.First();
 
 			if (!_game.PlayAnything &&
-			    cardToPlay.Color != "wild" &&
-			    cardToPlay.Color != _game.CurrentCard.Color &&
-			    (_game.CurrentCard.Value == "wild" ||
-			     _game.CurrentCard.Value == "draw 4" ||
-			     cardToPlay.Value != _game.CurrentCard.Value))
+				cardToPlay.Color != "wild" &&
+				cardToPlay.Color != _game.CurrentCard.Color &&
+				(_game.CurrentCard.Value == "wild" ||
+					_game.CurrentCard.Value == "draw 4" ||
+					cardToPlay.Value != _game.CurrentCard.Value))
 			{
 				await SendMessage($"You cannot play a {color} {value} on a {_game.CurrentCard.Color} {_game.CurrentCard.Value}",
 					true);
@@ -687,20 +695,47 @@ namespace SlackUnobot.Services
 			{
 				await SaveGame();
 				var chooser = new Attachment
-				              {
-					              Fallback = "Which color would you like to select?",
-					              Text = "Which color would you like to select?",
-					              CallbackId = "color_selection",
-					              Actions = new List<Action>
-					                        {
-						                        new Action {Name = "color", Text = "Blue", Type = "button", Value = "blue"},
-						                        new Action {Name = "color", Text = "Green", Type = "button", Value = "green"},
-						                        new Action {Name = "color", Text = "Red", Type = "button", Value = "red"},
-						                        new Action {Name = "color", Text = "Yellow", Type = "button", Value = "yellow"}
-					                        }
-				              };
+				{
+					Fallback = "Which color would you like to select?",
+					Text = "Which color would you like to select?",
+					CallbackId = "color_selection",
+					Actions = new List<Action>
+					{
+						new Action
+						{
+							Name = "color",
+							Text = "Blue",
+							Type = "button",
+							Value = "blue"
+						},
+						new Action
+						{
+							Name = "color",
+							Text = "Green",
+							Type = "button",
+							Value = "green"
+						},
+						new Action
+						{
+							Name = "color",
+							Text = "Red",
+							Type = "button",
+							Value = "red"
+						},
+						new Action
+						{
+							Name = "color",
+							Text = "Yellow",
+							Type = "button",
+							Value = "yellow"
+						}
+					}
+				};
 
-				await ReportHand(new List<Attachment> {chooser});
+				await ReportHand(new List<Attachment>
+				{
+					chooser
+				});
 				//TODO: Begin conversation and interactively prompt for color
 				/*await sendMessage(message, {
 				        text: '',
@@ -801,12 +836,12 @@ namespace SlackUnobot.Services
 			color = color.ToLower();
 
 			var colors = new Dictionary<string, string>
-			             {
-				             {"b", "blue"},
-				             {"y", "yellow"},
-				             {"g", "green"},
-				             {"r", "red"}
-			             };
+			{
+				{ "b", "blue" },
+				{ "y", "yellow" },
+				{ "g", "green" },
+				{ "r", "red" }
+			};
 
 			if (colors.ContainsKey(color))
 			{
