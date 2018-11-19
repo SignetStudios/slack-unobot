@@ -493,7 +493,7 @@ namespace SlackUnobot.Services
 			await SendMessage($"{currentPlayer} has drawn a card.");
 
 			await SaveGame();
-			BeginTurnInteractive();
+			await BeginTurnInteractive();
 		}
 
 		public async Task InitializeGame()
@@ -568,11 +568,6 @@ namespace SlackUnobot.Services
 
 			await SaveGame();
 		}
-
-		public async Task BeginTurnInteractive()
-		{
-			throw new NotImplementedException();
-	}
 
 		public async Task PlayCard(string color = "", string value = "")
 		{
@@ -660,7 +655,7 @@ namespace SlackUnobot.Services
 				_log.Info($"{color} {value}");
 				await SendMessage($"You don't have a {(color != "wild" ? $"{color} " : "")}{value}", true);
 				await SaveGame();
-				BeginTurnInteractive();
+				await BeginTurnInteractive();
 				return;
 			}
 
@@ -676,7 +671,7 @@ namespace SlackUnobot.Services
 				await SendMessage($"You cannot play a {color} {value} on a {_game.CurrentCard.Color} {_game.CurrentCard.Value}",
 					true);
 				await SaveGame();
-				BeginTurnInteractive();
+				await BeginTurnInteractive();
 				return;
 			}
 
@@ -765,11 +760,11 @@ namespace SlackUnobot.Services
 
 			if (playerName == _game.TurnOrder.First())
 			{
-				BeginTurnInteractive();
+				await BeginTurnInteractive();
 			}
 			else
 			{
-				ProcessAiTurns();
+				await ProcessAiTurns();
 			}
 		}
 
@@ -843,15 +838,15 @@ namespace SlackUnobot.Services
 
 			if (playerName == _game.TurnOrder.First())
 			{
-				BeginTurnInteractive();
+				await BeginTurnInteractive();
 			}
 			else
 			{
-				ProcessAiTurns();
+				await ProcessAiTurns();
 			}
 		}
 
-		public void ProcessAiTurns()
+		public async Task ProcessAiTurns()
 		{
 			throw new NotImplementedException();
 		}
@@ -872,6 +867,11 @@ namespace SlackUnobot.Services
 		}
 
 		public async Task RenameAiPlayer(string playerName, string newPlayerName)
+		{
+			throw new NotImplementedException();
+		}
+
+		public async Task BeginTurnInteractive()
 		{
 			throw new NotImplementedException();
 		}
