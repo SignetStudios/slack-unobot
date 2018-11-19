@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
 using SlackUnobot.Objects;
-using SlackUnobot.Objects.DeckOfCardsApi;
 using SlackUnobot.Objects.Slack;
 using Action = SlackUnobot.Objects.Slack.Action;
 
@@ -20,6 +17,7 @@ namespace SlackUnobot.Services
 		private readonly SlackClient _slackClient;
 		private readonly SlackRequest _request;
 		private readonly RedisClient _redis;
+		private readonly DeckOfCards _deckOfCards;
 		private Game _game;
 
 		public UnoService(SlackRequest request, TraceWriter log)
@@ -28,6 +26,7 @@ namespace SlackUnobot.Services
 			_request = request;
 			_slackClient = new SlackClient(Environment.GetEnvironmentVariable("SlackWebhookUrl"));
 			_redis = new RedisClient();
+			_deckOfCards = new DeckOfCards();
 		}
 
 		public UnoService(SlackActionRequest request, TraceWriter log)
@@ -39,8 +38,6 @@ namespace SlackUnobot.Services
 		{
 			_game = await _redis.GetGameAsync(_request.ChannelId);
 		}
-
-		private const string DECK_OF_CARDS_API = "http://deckofcardsapi.com/api";
 
 		private static string ColorToHex(string color)
 		{
@@ -69,20 +66,16 @@ namespace SlackUnobot.Services
 
 			try
 			{
-				using (var client = new HttpClient())
+				var draw = await _deckOfCards.DrawCards(_game.DeckId, count);
+				foreach (var card in draw.Cards)
 				{
-					var drawRequest = await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/draw/?count={count}");
-					var drawResult = JsonConvert.DeserializeObject<Draw>(drawRequest);
-					foreach (var card in drawResult.Cards)
-					{
-						_game.Players[playerName].Hand.Add(Card.FromRegularCard(card));
-					}
+					_game.Players[playerName].Hand.Add(Card.FromRegularCard(card));
+				}
 
-					if (drawResult.Remaining <= 10)
-					{
-						await SendMessage("Less than 10 cards remaining. Reshuffling the deck.");
-						await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/shuffle");
-					}
+				if (draw.Remaining <= 10)
+				{
+					await SendMessage("Less than 10 cards remaining. Reshuffling the deck.");
+					await _deckOfCards.ShuffleDeck(_game.DeckId);
 				}
 			}
 			catch (Exception e)
@@ -99,12 +92,8 @@ namespace SlackUnobot.Services
 
 		private async Task GetNewDeck()
 		{
-			using (var client = new HttpClient())
-			{
-				var deckRequest = await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/new/shuffle/?deck_count=2");
-				var deckResult = JsonConvert.DeserializeObject<Shuffle>(deckRequest);
-				_game.DeckId = deckResult.DeckId;
-			}
+			var deckId = await _deckOfCards.NewDeck();
+			_game.DeckId = deckId;
 		}
 
 		private async Task EndTurn()
@@ -922,15 +911,9 @@ namespace SlackUnobot.Services
 				}
 
 				//draw the starting card as well
-				using (var client = new HttpClient())
-				{
-					var startingCardRequest =
-						await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/draw/?count=1");
-					var startingCardResult = JsonConvert.DeserializeObject<Draw>(startingCardRequest);
-
-					_game.CurrentCard = Card.FromRegularCard(startingCardResult.Cards.First());
-					_game.PlayAnything = _game.CurrentCard.Color == "wild";
-				}
+				var startingCard = await _deckOfCards.DrawCards(_game.DeckId, 1);
+				_game.CurrentCard = Card.FromRegularCard(startingCard.Cards.First());
+				_game.PlayAnything = _game.CurrentCard.Color == "wild";
 			}
 			catch (Exception e)
 			{
