@@ -1013,7 +1013,129 @@ namespace SlackUnobot.Services
 
 		public async Task BeginTurnInteractive()
 		{
-			throw new NotImplementedException();
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var playerName = _request.UserName;
+
+			if (!_game.Started)
+			{
+				await SendMessage("The game has not yet been started.", true);
+				return;
+			}
+
+			var currentPlayer = _game.TurnOrder.Peek();
+
+			if (playerName != currentPlayer)
+			{
+				//TODO: This will eventually be handled by showing a limited menu (status mostly)
+				await SendMessage("It is not your turn.", true);
+				return;
+			}
+
+			var toSend = new SlackMessage
+			{
+				Text = "What would you like to do?",
+				Attachments = new List<Attachment>
+				{
+					new Attachment
+					{
+						Pretext = "The current up card is:",
+						Color = ColorToHex(_game.CurrentCard.Color),
+						Text = $"{_game.CurrentCard.Color} {_game.CurrentCard.Value}"
+					}
+				},
+				ReplaceOriginal = false,
+				DeleteOriginal = true
+			};
+
+			var colors = new List<string>
+			{
+				"Blue",
+				"Green",
+				"Red",
+				"Yellow",
+				"Wild"
+			};
+
+			var hand = _game.Players[playerName].Hand;
+			var isFirst = true;
+
+			foreach (var color in colors)
+			{
+				var handColors = hand.Where(x => x.Color == color).ToList();
+				if (!handColors.Any())
+				{
+					continue;
+				}
+
+				var actionLists = handColors.Select((x, index) => new
+																{
+																	val = new Action
+																	{
+																		Name = "play",
+																		Text = $"{x.Color} {x.Value}",
+																		Type = "button",
+																		Value = x.Color == "Wild" ? x.Value : $"{x.Color} {x.Value}"
+																	},
+																	index
+																})
+																.GroupBy(x => x.index / 5, y => y.val); //Actions grouped into sets of 5
+
+				foreach (var actionList in actionLists)
+				{
+					var attachment = new Attachment
+					{
+						Color = ColorToHex(color.ToLower()),
+						Fallback = "You are unable to play a card",
+						CallbackId = "playCard",
+						Actions = actionList.ToList()
+					};
+
+					if (isFirst)
+					{
+						attachment.Pretext = "Play a card";
+						isFirst = false;
+					}
+
+					toSend.Attachments.Add(attachment);
+				}
+			}
+
+			toSend.Attachments.Add(new Attachment
+			{
+				Fallback = "You were unable to perform the action",
+				CallbackId = "other",
+				Pretext = "Other Action",
+				Actions = new List<Action>
+				{
+					new Action
+					{
+						Name = "draw",
+						Text = "Draw a card",
+						Type = "button",
+						Value = "draw"
+					},
+					new Action
+					{
+						Name = "status",
+						Text = "View game status",
+						Type = "button",
+						Value = "status"
+					},
+					new Action
+					{
+						Name = "dismiss",
+						Text = "Dismiss",
+						Type = "button",
+						Value = "dismiss"
+					}
+				}
+			});
+
+			await SendMessage(toSend, true);
 		}
 	}
 }
