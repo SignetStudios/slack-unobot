@@ -881,17 +881,76 @@ namespace SlackUnobot.Services
 			}
 		}
 
+		public async Task BeginGame()
+		{
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var user = _request.UserName;
+
+			if (_game.Player1 != user)
+			{
+				await SendMessage($"Only player 1 ({_game.Player1}) can start the game.", true);
+				return;
+			}
+
+			if (_game.Players.Count < 2)
+			{
+				await SendMessage("You need at least two players to begin playing.", true);
+				return;
+			}
+
+			if (_game.Started)
+			{
+				await SendMessage("The game is already started.", true);
+				await ReportTurnOrder(true);
+				return;
+			}
+
+			_game.Started = true;
+
+			await SendMessage("Game has started! Shuffling the deck and dealing the hands.");
+
+			try
+			{
+				await GetNewDeck();
+				foreach (var playerName in _game.Players)
+				{
+					await DrawCards(playerName.Key, 7);
+				}
+
+				//draw the starting card as well
+				using (var client = new HttpClient())
+				{
+					var startingCardRequest =
+						await client.GetStringAsync($"{DECK_OF_CARDS_API}/deck/{_game.DeckId}/draw/?count=1");
+					var startingCardResult = JsonConvert.DeserializeObject<Draw>(startingCardRequest);
+
+					_game.CurrentCard = Card.FromRegularCard(startingCardResult.Cards.First());
+					_game.PlayAnything = _game.CurrentCard.Color == "wild";
+				}
+			}
+			catch (Exception e)
+			{
+				_log.Error("An error occurred starting the game.", e);
+				await SendMessage("An error occurred starting the game.", true);
+				return;
+			}
+
+			await SaveGame();
+			await AnnounceTurn();
+			await ReportHand();
+			await ProcessAiTurns();
+		}
+
 		public async Task ProcessAiTurns()
 		{
 			throw new NotImplementedException();
 		}
 
 		public async Task QuitGame(string playerName = "")
-		{
-			throw new NotImplementedException();
-		}
-
-		public async Task BeginGame()
 		{
 			throw new NotImplementedException();
 		}
