@@ -17,6 +17,7 @@ namespace SlackUnobot.Services
 		private readonly SlackClient _slackClient;
 		private readonly SlackRequest _request;
 		private readonly RedisClient _redis;
+		private readonly CosmosDbService _cosmos;
 		private readonly DeckOfCards _deckOfCards;
 		private Game _game;
 
@@ -26,6 +27,7 @@ namespace SlackUnobot.Services
 			_request = request;
 			_slackClient = new SlackClient(Environment.GetEnvironmentVariable("SlackWebhookUrl"));
 			_redis = new RedisClient();
+			_cosmos = new CosmosDbService();
 			_deckOfCards = new DeckOfCards();
 		}
 
@@ -119,7 +121,7 @@ namespace SlackUnobot.Services
 			_game.TurnOrder.Enqueue(_game.TurnOrder.Dequeue());
 		}
 
-		public Game NewGame()
+		private Game NewGame()
 		{
 			return new Game();
 		}
@@ -1001,14 +1003,101 @@ namespace SlackUnobot.Services
 			await ReportTurnOrder();
 		}
 
-		public async Task AddAiPlayer(string aiName, string playerName)
+		public async Task AddAiPlayer(string aiName, string playerName = "")
 		{
-			throw new NotImplementedException();
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var ai = await _cosmos.GetAi(aiName);
+
+			if (ai == null)
+			{
+				await SendMessage($"AI {aiName} is not registered", true);
+				return;
+			}
+
+			//TODO: Check if there is a /play endpoint for the URL
+
+			if (string.IsNullOrWhiteSpace(playerName))
+			{
+				playerName = ai.PreferredName;
+			}
+
+			if (string.IsNullOrWhiteSpace(playerName))
+			{
+				playerName = aiName;
+			}
+
+			if (_game.TurnOrder.Any(x => x == playerName) || _game.NextGame.Any(x => x.Name == playerName))
+			{
+				await SendMessage($"There is already a player name {playerName} playing the game.", true);
+				return;
+			}
+
+			if (_game.Players[playerName] != null)
+			{
+				if (!_game.Players[playerName].IsAi)
+				{
+					await SendMessage($"There is already a player named {playerName} registered in this game.", true);
+				}
+			}
+			else
+			{
+				_game.Players.Add(playerName, new Player
+				{
+					IsAi = true,
+					AiType = aiName,
+					Score = 0,
+					Id = playerName
+				});
+			}
+
+			if (_game.Started)
+			{
+				_game.NextGame.Add(_game.Players[playerName]);
+				await SendMessage($"{playerName} ({aiName}.ai) will join the next hand.");
+			}
+			else
+			{
+				_game.TurnOrder.Enqueue(playerName);
+				await SendMessage($"{playerName} ({aiName}.ai) has joined the game.");
+				await ReportTurnOrder(true);
+			}
+
+			await SaveGame();
 		}
 
 		public async Task RenameAiPlayer(string playerName, string newPlayerName)
 		{
-			throw new NotImplementedException();
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			if (_game.Players.All(x => x.Key != playerName))
+			{
+				return;
+			}
+
+			if (_game.Players.Any(x => x.Key == newPlayerName))
+			{
+				return;
+			}
+
+			if (!_game.Players[playerName].IsAi)
+			{
+				return;
+			}
+
+			_game.Players[newPlayerName] = _game.Players[playerName];
+			_game.Players.Remove(playerName);
+
+			//TODO: rename in TurnOrder
+			//TODO: rename in NextGame
+
+			await SendMessage($"AI player {playerName} is now named {newPlayerName}");
 		}
 
 		public async Task BeginTurnInteractive()

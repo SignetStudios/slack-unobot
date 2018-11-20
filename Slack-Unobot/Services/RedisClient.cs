@@ -1,12 +1,12 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 using SlackUnobot.Objects;
 using StackExchange.Redis;
-using System;
-using System.Threading.Tasks;
 
 namespace SlackUnobot.Services
 {
-	public class RedisClient
+	public class RedisClient : IDataService
 	{
 		private readonly ConnectionMultiplexer _redis;
 		private const string RedisKey = "botkit:store:channels";
@@ -17,7 +17,10 @@ namespace SlackUnobot.Services
 			{
 				EndPoints =
 				{
-					{Environment.GetEnvironmentVariable("RedisHost"), int.Parse(Environment.GetEnvironmentVariable("RedisPort") ?? "")}
+					{
+						Environment.GetEnvironmentVariable("RedisHost"),
+						int.Parse(Environment.GetEnvironmentVariable("RedisPort") ?? "")
+					}
 				},
 				Password = Environment.GetEnvironmentVariable("RedisPassword")
 			});
@@ -26,7 +29,7 @@ namespace SlackUnobot.Services
 		public Game GetGame(string channelId)
 		{
 			var db = _redis.GetDatabase();
-			
+
 			return db.HashExists(RedisKey, channelId)
 				? JsonConvert.DeserializeObject<Game>(db.HashGet(RedisKey, channelId))
 				: new Game();
