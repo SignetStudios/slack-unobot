@@ -1072,17 +1072,17 @@ namespace SlackUnobot.Services
 				}
 
 				var actionLists = handColors.Select((x, index) => new
-																{
-																	val = new Action
-																	{
-																		Name = "play",
-																		Text = $"{x.Color} {x.Value}",
-																		Type = "button",
-																		Value = x.Color == "Wild" ? x.Value : $"{x.Color} {x.Value}"
-																	},
-																	index
-																})
-																.GroupBy(x => x.index / 5, y => y.val); //Actions grouped into sets of 5
+																		{
+																			val = new Action
+																			{
+																				Name = "play",
+																				Text = x.Color == "Wild" ? x.Value : $"{x.Color} {x.Value}",
+																				Type = "button",
+																				Value = x.Color == "Wild" ? x.Value : $"{x.Color} {x.Value}"
+																			},
+																			index
+																		})
+																		.GroupBy(x => x.index / 5, y => y.val); //Grouped into sets of 5
 
 				foreach (var actionList in actionLists)
 				{
