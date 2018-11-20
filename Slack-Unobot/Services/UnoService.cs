@@ -20,6 +20,7 @@ namespace SlackUnobot.Services
 		private readonly CosmosDbService _cosmos;
 		private readonly DeckOfCards _deckOfCards;
 		private Game _game;
+		private readonly AiService _aiService;
 
 		public UnoService(SlackRequest request, TraceWriter log)
 		{
@@ -29,6 +30,7 @@ namespace SlackUnobot.Services
 			_redis = new RedisClient();
 			_cosmos = new CosmosDbService();
 			_deckOfCards = new DeckOfCards();
+			_aiService = new AiService();
 		}
 
 		public UnoService(SlackActionRequest request, TraceWriter log)
@@ -930,9 +932,39 @@ namespace SlackUnobot.Services
 			await ProcessAiTurns();
 		}
 
-		public async Task ProcessAiTurns()
+		private async Task ProcessAiTurns()
 		{
-			throw new NotImplementedException();
+			if (_game == null)
+			{
+				await LoadGame();
+			}
+
+			var nextPlayer = _game.Players[_game.TurnOrder.Peek()];
+
+			while (nextPlayer.IsAi)
+			{
+				var ai = await _cosmos.GetAi(nextPlayer.AiType);
+
+				var playResult = await _aiService.GetAiTurn(ai.Url);
+
+				switch (playResult.Action)
+				{
+					case AiPlayType.Play:
+						await AiPlay(playResult);
+						break;
+					case AiPlayType.Draw:
+						await AiDraw();
+						break;
+				}
+			}
+		}
+
+		private async Task AiPlay(AiResult result)
+		{
+		}
+
+		private async Task AiDraw()
+		{
 		}
 
 		public async Task QuitGame(string playerName = "")
@@ -1018,7 +1050,11 @@ namespace SlackUnobot.Services
 				return;
 			}
 
-			//TODO: Check if there is a /play endpoint for the URL
+			if (!await _aiService.IsValidAi(ai.Url))
+			{
+				await SendMessage($"{aiName} is not a properly-defined AI.", true);
+				return;
+			}
 
 			if (string.IsNullOrWhiteSpace(playerName))
 			{
